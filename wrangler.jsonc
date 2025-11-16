@@ -7,27 +7,77 @@
 	"name": "qpm-backend",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-11-11",
+    "workers_dev": false,
+    "preview_urls": false,
 	"observability": {
 		"enabled": true
-	}
+	},
 	/**
-	 * Smart Placement
-	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
+	 * R2 Bucket for package storage
+	 * https://developers.cloudflare.com/r2/api/workers/workers-api-reference/
 	 */
-	// "placement": { "mode": "smart" }
+	"r2_buckets": [
+		{
+			"binding": "PACKAGES",
+			"bucket_name": "qpm-packages",
+			"preview_bucket_name": "qpm-packages-preview"
+		}
+	],
 	/**
-	 * Bindings
-	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
-	 * databases, object storage, AI inference, real-time communication and more.
-	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
+	 * KV Namespaces for user permissions
+	 * https://developers.cloudflare.com/kv/
 	 */
+	"kv_namespaces": [
+		{
+			"binding": "PERMISSIONS",
+			"id": "47ea0cff91af4c0fb11703daa959bad3",
+			"remote": true
+		},
+		{
+			"binding": "TOKEN_CACHE",
+			"id": "df63788f6364487c97e96f339f11c76e",
+			"remote": true
+		}
+	],
+	/**
+	 * Durable Objects for Rate Limiting
+	 * https://developers.cloudflare.com/durable-objects/
+	 */
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "RATE_LIMITER",
+				"class_name": "RateLimiter",
+				"script_name": "qpm-backend"
+			}
+		]
+	},
+	/**
+	 * Durable Objects Migrations
+	 * Required for deploying new Durable Object classes
+	 * https://developers.cloudflare.com/durable-objects/reference/durable-objects-migrations/
+	 */
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"RateLimiter"
+			]
+		}
+	],
 	/**
 	 * Environment Variables
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 	 */
-	// "vars": { "MY_VARIABLE": "production_value" }
+	"vars": {
+		"GITHUB_CLIENT_ID": "Iv23lipeuZ8BUBcWByRi"
+	}
 	/**
-	 * Note: Use secrets to store sensitive data.
+	 * Secrets (set via: wrangler secret put <NAME>)
+	 * - GITHUB_CLIENT_SECRET: OAuth app secret from GitHub
+	 * - JWT_SECRET: For signing tokens (optional, for future features)
+	 *
+	 * Example: wrangler secret put GITHUB_CLIENT_SECRET
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
 	 */
 	/**

@@ -1,0 +1,720 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "OpenAPI"
+  },
+  "components": {
+    "schemas": {
+
+    },
+    "parameters": {
+
+    }
+  },
+  "paths": {
+    "/packages/{scope}/{package}/{version}": {
+      "post": {
+        "tags": [
+          "Packages"
+        ],
+        "summary": "Upload a package version",
+        "description": "Upload a new package version to the registry. Requires GitHub authentication. Package scope must match authenticated user.",
+        "operationId": "post_PackageUpload",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Package scope (username without @)",
+              "example": "alice"
+            },
+            "required": true,
+            "description": "Package scope (username without @)",
+            "name": "scope",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Package name",
+              "example": "postgres"
+            },
+            "required": true,
+            "description": "Package name",
+            "name": "package",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Package version (semver format)",
+              "example": "1.0.0"
+            },
+            "required": true,
+            "description": "Package version (semver format)",
+            "name": "version",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Bearer token from GitHub OAuth"
+            },
+            "required": true,
+            "description": "Bearer token from GitHub OAuth",
+            "name": "authorization",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "application/gzip"
+              ],
+              "description": "Must be application/gzip"
+            },
+            "required": true,
+            "description": "Must be application/gzip",
+            "name": "content-type",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Size of package in bytes"
+            },
+            "required": true,
+            "description": "Size of package in bytes",
+            "name": "content-length",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Package uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "Always true for success"
+                    },
+                    "package": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "example": "@alice/postgres"
+                        },
+                        "version": {
+                          "type": "string",
+                          "example": "1.0.0"
+                        },
+                        "integrity": {
+                          "type": "string",
+                          "example": "sha256-abc123..."
+                        },
+                        "size": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "version",
+                        "integrity",
+                        "size"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "package"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [false]
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error code",
+                      "example": "unauthorized"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable error message",
+                      "example": "Invalid or missing authentication token"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Scope mismatch or validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [false]
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error code",
+                      "example": "unauthorized"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable error message",
+                      "example": "Invalid or missing authentication token"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - Version already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [false]
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error code",
+                      "example": "unauthorized"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable error message",
+                      "example": "Invalid or missing authentication token"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large - Exceeds 50MB limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [false]
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error code",
+                      "example": "unauthorized"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable error message",
+                      "example": "Invalid or missing authentication token"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [false]
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error code",
+                      "example": "unauthorized"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable error message",
+                      "example": "Invalid or missing authentication token"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Packages"
+        ],
+        "summary": "Download a package version",
+        "description": "Download a specific version of a package. No authentication required. Returns the package archive with caching headers.",
+        "operationId": "get_PackageDownload",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Package scope (username without @)",
+              "example": "alice"
+            },
+            "required": true,
+            "description": "Package scope (username without @)",
+            "name": "scope",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Package name",
+              "example": "postgres"
+            },
+            "required": true,
+            "description": "Package name",
+            "name": "package",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Package version (semver format)",
+              "example": "1.0.0"
+            },
+            "required": true,
+            "description": "Package version (semver format)",
+            "name": "version",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Package archive (binary gzip data with cache headers)"
+          },
+          "206": {
+            "description": "Partial Content - Range request response"
+          },
+          "304": {
+            "description": "Not Modified - ETag matches"
+          },
+          "404": {
+            "description": "Package or version not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [false]
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error code",
+                      "example": "unauthorized"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable error message",
+                      "example": "Invalid or missing authentication token"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{scope}/{package}": {
+      "get": {
+        "tags": [
+          "Packages"
+        ],
+        "summary": "List package versions",
+        "description": "Get metadata and list of all published versions for a package. Returns versions array and latest version.",
+        "operationId": "get_PackageList",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Package scope (username without @)",
+              "example": "alice"
+            },
+            "required": true,
+            "description": "Package scope (username without @)",
+            "name": "scope",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Package name",
+              "example": "postgres"
+            },
+            "required": true,
+            "description": "Package name",
+            "name": "package",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Package version list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "example": "@alice/postgres"
+                    },
+                    "versions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Array of version strings"
+                    },
+                    "latest": {
+                      "type": "string",
+                      "description": "Latest version (highest semver)",
+                      "example": "2.0.0"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "versions",
+                    "latest"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Package not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [false]
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error code",
+                      "example": "unauthorized"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable error message",
+                      "example": "Invalid or missing authentication token"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{scope}/{package}/{version}/metadata": {
+      "get": {
+        "tags": [
+          "Packages"
+        ],
+        "summary": "Get package version metadata",
+        "description": "Retrieve metadata for a specific package version, including integrity hash, size, and upload information.",
+        "operationId": "get_PackageMetadataEndpoint",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Package scope (username without @)",
+              "example": "alice"
+            },
+            "required": true,
+            "description": "Package scope (username without @)",
+            "name": "scope",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Package name",
+              "example": "postgres"
+            },
+            "required": true,
+            "description": "Package name",
+            "name": "package",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Package version (semver format)",
+              "example": "1.0.0"
+            },
+            "required": true,
+            "description": "Package version (semver format)",
+            "name": "version",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Package metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Full package name with scope",
+                      "example": "@alice/postgres"
+                    },
+                    "version": {
+                      "type": "string",
+                      "description": "Package version",
+                      "example": "1.0.0"
+                    },
+                    "integrity": {
+                      "type": "string",
+                      "description": "SHA-256 integrity hash (base64)",
+                      "example": "sha256-abc123def456..."
+                    },
+                    "size": {
+                      "type": "number",
+                      "description": "Package size in bytes"
+                    },
+                    "uploadedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "Upload timestamp (ISO 8601)"
+                    },
+                    "uploadedBy": {
+                      "type": "string",
+                      "description": "Username of uploader",
+                      "example": "alice"
+                    },
+                    "dependencies": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "description": "Package dependencies"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "version",
+                    "integrity",
+                    "size",
+                    "uploadedAt",
+                    "uploadedBy"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Package version not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [false]
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error code",
+                      "example": "unauthorized"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable error message",
+                      "example": "Invalid or missing authentication token"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/device/code": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Initiate OAuth device flow",
+        "description": "Start the GitHub OAuth device flow for CLI authentication. Returns device code and user code for authorization.",
+        "operationId": "post_AuthDevice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "type": "string",
+                    "description": "OAuth scopes to request",
+                    "example": "read:user read:org"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device code response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "device_code": {
+                      "type": "string",
+                      "description": "Device code for polling"
+                    },
+                    "user_code": {
+                      "type": "string",
+                      "description": "Code for user to enter",
+                      "example": "ABCD-1234"
+                    },
+                    "verification_uri": {
+                      "type": "string",
+                      "description": "URL for user to visit",
+                      "example": "https://github.com/login/device"
+                    },
+                    "expires_in": {
+                      "type": "number",
+                      "description": "Expiration time in seconds"
+                    },
+                    "interval": {
+                      "type": "number",
+                      "description": "Polling interval in seconds"
+                    }
+                  },
+                  "required": [
+                    "device_code",
+                    "user_code",
+                    "verification_uri",
+                    "expires_in",
+                    "interval"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [false]
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error code",
+                      "example": "unauthorized"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Human-readable error message",
+                      "example": "Invalid or missing authentication token"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "error",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {
+
+  }
+}
