@@ -8,7 +8,7 @@ import { contentJson, OpenAPIRoute, Str } from "chanfana";
 import { z } from "zod";
 import type { AppContext } from "../types";
 import { UploadSuccessResponse, ErrorResponse } from "../types";
-import { validateGitHubToken } from "../utils/github";
+import { validateGitHubToken, validateOrgMembership } from "../utils/github";
 import {
 	extractBearerToken,
 	validatePackageName,
@@ -16,6 +16,7 @@ import {
 	validateFileSize,
 	buildPackageName,
 	validateDependencies,
+	normalizeScope,
 } from "../utils/validation";
 import {
 	packageVersionExists,
@@ -31,6 +32,7 @@ import {
 } from "../utils/rate-limit";
 import { extractDependencies } from "../utils/package-parser";
 import { isAdmin } from "../utils/permissions";
+import {checkPermissions} from "../utils/endpoint-permissions";
 
 export class PackageUpload extends OpenAPIRoute {
 	schema = {
@@ -96,7 +98,10 @@ export class PackageUpload extends OpenAPIRoute {
 
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
-		const { scope, package: packageName, version } = data.params;
+		const { scope: rawScope, package: packageName, version } = data.params;
+
+		// Normalize scope to lowercase for case-insensitive comparison and storage
+		const scope = normalizeScope(rawScope);
 
 		// Step 0: Extract IP address for rate limiting
 		const ip = c.req.header("CF-Connecting-IP");
@@ -153,19 +158,12 @@ export class PackageUpload extends OpenAPIRoute {
 			);
 		}
 
-		// Step 4: Validate scope matches authenticated user
-		// Admins can upload to any scope
-		const userIsAdmin = await isAdmin(user.id, c.env);
-		if (!userIsAdmin && scope !== user.login) {
-			return Response.json(
-				{
-					success: false,
-					error: "forbidden",
-					message: `Package scope @${scope} does not match authenticated user @${user.login}`,
-				},
-				{ status: 403 }
-			);
-		}
+		// Step 4: Validate scope matches authenticated user or org membership
+		// Check in order: global admin → user scope → org admin
+		const permissionResult = await checkPermissions(c, user, scope, token);
+        if (permissionResult) {
+            return permissionResult;
+        }
 
 		// Step 5: Validate version format
 		const versionValidation = validateVersion(version);

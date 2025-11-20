@@ -106,7 +106,6 @@ export class PermissionList extends OpenAPIRoute {
 
 		// Step 3: Parse and validate target user ID
 		const userId = parseInt(userIdStr, 10);
-        console.log('user id :', userId);
 		if (isNaN(userId) || userId <= 0) {
 			return Response.json(
 				{

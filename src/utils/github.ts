@@ -2,10 +2,11 @@
  * GitHub API integration utilities
  */
 
-import type { GitHubUser } from "../types";
+import type { GitHubUser, GitHubOrgMembership } from "../types";
 
 const GITHUB_API_BASE = "https://api.github.com";
 const TOKEN_CACHE_TTL = 15 * 60; // 15 minutes in seconds (for KV expirationTtl)
+const ORG_MEMBERSHIP_CACHE_TTL = 60 * 60; // 1 hour in seconds (for KV expirationTtl)
 
 /**
  * Hash a token using SHA-256 for secure cache key generation
@@ -68,6 +69,86 @@ export async function validateGitHubToken(
 	} catch (error) {
 		console.error("GitHub API error:", error);
 		return null;
+	}
+}
+
+/**
+ * Validate organization membership and check if user is an admin
+ * Uses KV cache to avoid hitting GitHub API on every request (1 hour TTL)
+ * @param token GitHub OAuth token (with read:org scope)
+ * @param username GitHub username to check
+ * @param orgName Organization name (normalized to lowercase)
+ * @param env Cloudflare Worker environment bindings
+ * @returns true if user is an admin of the org, false otherwise
+ */
+export async function validateOrgMembership(
+	token: string,
+	username: string,
+	orgName: string,
+	env: { ORG_MEMBERSHIP_CACHE: KVNamespace }
+): Promise<{ isAdmin: boolean; error?: string }> {
+	// Create cache key: hash(token) + username + orgname
+	const tokenHash = await hashToken(token);
+	const cacheKey = `${tokenHash}:${username}:${orgName}`;
+
+	// Check KV cache
+	const cachedData = await env.ORG_MEMBERSHIP_CACHE.get(cacheKey);
+	if (cachedData) {
+		return { isAdmin: cachedData === "admin" };
+	}
+
+	// Fetch from GitHub API
+	try {
+		const response = await fetch(
+			`${GITHUB_API_BASE}/orgs/${orgName}/memberships/${username}`,
+			{
+				headers: {
+					Authorization: `Bearer ${token}`,
+					"User-Agent": "qpm-registry/1.0.0",
+					Accept: "application/vnd.github.v3+json",
+				},
+			}
+		);
+
+		// Handle various error cases
+		if (response.status === 404) {
+			// User is not a member of the org
+			await env.ORG_MEMBERSHIP_CACHE.put(cacheKey, "not_member", {
+				expirationTtl: ORG_MEMBERSHIP_CACHE_TTL,
+			});
+			return { isAdmin: false };
+		}
+
+		if (response.status === 403) {
+			// Token lacks read:org scope
+			return {
+				isAdmin: false,
+				error: "insufficient_permissions"
+			};
+		}
+
+		if (!response.ok) {
+			// Other errors (rate limit, server error, etc.)
+			console.error(`GitHub org membership API error: ${response.status}`);
+			return { isAdmin: false, error: "github_api_error" };
+		}
+
+		const membership = (await response.json()) as GitHubOrgMembership;
+
+		// Check if user is an admin with active state
+		const isAdmin = membership.role === "admin" && membership.state === "active";
+
+		// Store in KV cache with TTL
+		await env.ORG_MEMBERSHIP_CACHE.put(
+			cacheKey,
+			isAdmin ? "admin" : "member",
+			{ expirationTtl: ORG_MEMBERSHIP_CACHE_TTL }
+		);
+
+		return { isAdmin };
+	} catch (error) {
+		console.error("GitHub org membership API error:", error);
+		return { isAdmin: false, error: "github_api_error" };
 	}
 }
 

@@ -9,6 +9,7 @@ import { z } from "zod";
 import type { AppContext } from "../types";
 import { ErrorResponse } from "../types";
 import { getPackage, getMetadata } from "../utils/storage";
+import { normalizeScope } from "../utils/validation";
 
 export class PackageDownload extends OpenAPIRoute {
 	schema = {
@@ -54,7 +55,10 @@ export class PackageDownload extends OpenAPIRoute {
 
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
-		const { scope, package: packageName, version } = data.params;
+		const { scope: rawScope, package: packageName, version } = data.params;
+
+		// Normalize scope to lowercase for case-insensitive lookup
+		const scope = normalizeScope(rawScope);
 
 		// Step 1: Get package from R2
 		const packageObject = await getPackage(

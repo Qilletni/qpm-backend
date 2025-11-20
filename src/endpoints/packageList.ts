@@ -9,7 +9,7 @@ import { z } from "zod";
 import type { AppContext } from "../types";
 import { PackageListResponse, ErrorResponse } from "../types";
 import { getVersionList } from "../utils/storage";
-import {buildPackageName, extractBearerToken} from "../utils/validation";
+import {buildPackageName, extractBearerToken, normalizeScope} from "../utils/validation";
 
 export class PackageList extends OpenAPIRoute {
 	schema = {
@@ -43,13 +43,14 @@ export class PackageList extends OpenAPIRoute {
 
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
-		const { scope, package: packageName } = data.params;
+		const { scope: rawScope, package: packageName } = data.params;
+
+		// Normalize scope to lowercase for case-insensitive lookup
+		const scope = normalizeScope(rawScope);
 
         const token = extractBearerToken(
             c.req.header("Authorization") || null
         );
-        console.log('AHHHHHHHH');
-        console.log(token);
 
 		// Get version list from R2
 		const versionList = await getVersionList(

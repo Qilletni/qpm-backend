@@ -123,6 +123,20 @@ export function buildPackageName(scope: string, packageName: string): string {
 }
 
 /**
+ * Normalize scope to lowercase for case-insensitive comparison and storage
+ * @param scope Scope string (with or without @ prefix)
+ * @returns Normalized (lowercase) scope without @ prefix
+ * @example
+ * normalizeScope("MyOrg") => "myorg"
+ * normalizeScope("@MyOrg") => "myorg"
+ * normalizeScope("alice") => "alice"
+ */
+export function normalizeScope(scope: string): string {
+	// Remove @ prefix if present, then convert to lowercase
+	return scope.startsWith("@") ? scope.slice(1).toLowerCase() : scope.toLowerCase();
+}
+
+/**
  * Validate file size
  * @param size File size in bytes
  * @returns Object with validation result

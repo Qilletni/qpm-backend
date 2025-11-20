@@ -8,6 +8,7 @@ export interface Env {
 	RATE_LIMITER: DurableObjectNamespace;
 	PERMISSIONS: KVNamespace;
 	TOKEN_CACHE: KVNamespace;
+	ORG_MEMBERSHIP_CACHE: KVNamespace;
 	GITHUB_CLIENT_ID: string;
 	GITHUB_CLIENT_SECRET: string;
 	JWT_SECRET?: string;
@@ -139,6 +140,21 @@ export interface GitHubUser {
 	type: string;
 	name?: string;
 	email?: string;
+}
+
+// GitHub organization membership info (from API)
+// GET /orgs/{org}/memberships/{username}
+export interface GitHubOrgMembership {
+	role: "admin" | "member";
+	state: "active" | "pending";
+	organization: {
+		login: string;
+		id: number;
+	};
+	user: {
+		login: string;
+		id: number;
+	};
 }
 
 // Package list item for registry-wide listing

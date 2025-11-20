@@ -9,6 +9,7 @@ import { z } from "zod";
 import type { AppContext } from "../types";
 import { PackageMetadata, ErrorResponse } from "../types";
 import { getMetadata } from "../utils/storage";
+import { normalizeScope } from "../utils/validation";
 
 export class PackageMetadataEndpoint extends OpenAPIRoute {
 	schema = {
@@ -46,7 +47,10 @@ export class PackageMetadataEndpoint extends OpenAPIRoute {
 
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
-		const { scope, package: packageName, version } = data.params;
+		const { scope: rawScope, package: packageName, version } = data.params;
+
+		// Normalize scope to lowercase for case-insensitive lookup
+		const scope = normalizeScope(rawScope);
 
 		// Get metadata from R2
 		const metadata = await getMetadata(

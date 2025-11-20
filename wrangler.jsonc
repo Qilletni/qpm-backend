@@ -6,7 +6,7 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "qpm-backend",
 	"main": "src/index.ts",
-	"compatibility_date": "2025-11-11",
+	"compatibility_date": "2025-11-09",
     "workers_dev": false,
     "preview_urls": false,
 	"observability": {
@@ -24,7 +24,10 @@
 		}
 	],
 	/**
-	 * KV Namespaces for user permissions
+	 * KV Namespaces
+	 * - PERMISSIONS: User permissions storage
+	 * - TOKEN_CACHE: GitHub token validation cache (15min TTL)
+	 * - ORG_MEMBERSHIP_CACHE: GitHub org membership cache (1hour TTL)
 	 * https://developers.cloudflare.com/kv/
 	 */
 	"kv_namespaces": [
@@ -36,6 +39,11 @@
 		{
 			"binding": "TOKEN_CACHE",
 			"id": "df63788f6364487c97e96f339f11c76e",
+			"remote": true
+		},
+		{
+			"binding": "ORG_MEMBERSHIP_CACHE",
+			"id": "fcab4d6176dd44d79d452c028f2b5de1",
 			"remote": true
 		}
 	],
@@ -70,7 +78,7 @@
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 	 */
 	"vars": {
-		"GITHUB_CLIENT_ID": "Iv23lipeuZ8BUBcWByRi"
+		"GITHUB_CLIENT_ID": "Ov23liqlRiwOO2Ld3qec"
 	}
 	/**
 	 * Secrets (set via: wrangler secret put <NAME>)
@@ -79,6 +87,10 @@
 	 *
 	 * Example: wrangler secret put GITHUB_CLIENT_SECRET
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
+	 *
+	 * OAuth Scopes Required:
+	 * - read:user: Basic user authentication
+	 * - read:org: Organization membership verification (for org package publishing)
 	 */
 	/**
 	 * Static Assets

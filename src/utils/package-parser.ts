@@ -35,8 +35,6 @@ export async function extractDependencies(
 	packageData: ArrayBuffer
 ): Promise<Record<string, string>> {
 	try {
-        console.log('package dfata=');
-        console.log(packageData);
 		// Convert ArrayBuffer to Uint8Array for fflate
 		const uint8Array = new Uint8Array(packageData);
 

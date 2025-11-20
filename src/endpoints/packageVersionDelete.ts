@@ -8,18 +8,20 @@ import { OpenAPIRoute, contentJson, Str } from "chanfana";
 import { z } from "zod";
 import type { AppContext } from "../types";
 import { DeleteVersionResponse, ErrorResponse } from "../types";
-import { validateGitHubToken } from "../utils/github";
+import { validateGitHubToken, validateOrgMembership } from "../utils/github";
 import {
 	extractBearerToken,
 	validatePackageName,
 	validateVersion,
 	buildPackageName,
+	normalizeScope,
 } from "../utils/validation";
 import {
 	deletePackageVersion,
 	findPackagesDependingOn,
 } from "../utils/storage";
 import { isAdmin } from "../utils/permissions";
+import {checkPermissions} from "../utils/endpoint-permissions";
 
 export class PackageVersionDelete extends OpenAPIRoute {
 	schema = {
@@ -71,8 +73,11 @@ export class PackageVersionDelete extends OpenAPIRoute {
 
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
-		const { scope, package: packageName, version } = data.params;
+		const { scope: rawScope, package: packageName, version } = data.params;
 		const { authorization } = data.headers;
+
+		// Normalize scope to lowercase for case-insensitive comparison and storage
+		const scope = normalizeScope(rawScope);
 
 		// Step 1: Extract and validate Bearer token
 		const token = extractBearerToken(authorization);
@@ -127,19 +132,12 @@ export class PackageVersionDelete extends OpenAPIRoute {
 			);
 		}
 
-		// Step 5: Verify scope matches authenticated user
-		// Admins can delete any package
-		const userIsAdmin = await isAdmin(user.id, c.env);
-		if (!userIsAdmin && scope !== user.login) {
-			return Response.json(
-				{
-					success: false,
-					error: "forbidden",
-					message: `Package scope @${scope} does not match authenticated user @${user.login}. You can only delete your own packages.`,
-				},
-				{ status: 403 }
-			);
-		}
+		// Step 5: Verify scope matches authenticated user or org membership
+		// Check in order: global admin → user scope → org admin
+        const permissionResult = await checkPermissions(c, user, scope, token);
+        if (permissionResult) {
+            return permissionResult;
+        }
 
 		// Step 6: Check for packages that depend on this version
 		// TODO: Implement efficient dependency checking (currently causes timeouts with many packages)
