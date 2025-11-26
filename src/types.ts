@@ -157,6 +157,15 @@ export interface GitHubOrgMembership {
 	};
 }
 
+// Authenticated identity (supports both user tokens and installation tokens)
+export interface AuthenticatedIdentity {
+	type: 'user' | 'installation';
+	scope: string;           // Username or organization name (lowercase)
+	userId?: number;         // GitHub user ID (for user tokens only)
+	displayName?: string;    // For user tokens
+	repositories?: string[]; // For installation tokens (optional)
+}
+
 // Package list item for registry-wide listing
 export const PackageListItem = z.object({
 	name: Str({

@@ -2,7 +2,7 @@
  * GitHub API integration utilities
  */
 
-import type { GitHubUser, GitHubOrgMembership } from "../types";
+import type { GitHubUser, GitHubOrgMembership, AuthenticatedIdentity } from "../types";
 
 const GITHUB_API_BASE = "https://api.github.com";
 const TOKEN_CACHE_TTL = 15 * 60; // 15 minutes in seconds (for KV expirationTtl)
@@ -23,26 +23,53 @@ async function hashToken(token: string): Promise<string> {
 }
 
 /**
- * Validate GitHub token and get user info
+ * Validate GitHub token and get authenticated identity
+ * Supports both OAuth/PAT user tokens and GitHub App installation tokens
  * Uses KV cache to avoid hitting GitHub API on every request (15 minute TTL)
- * @param token GitHub OAuth token
+ * @param token GitHub token (OAuth, PAT, or installation token)
  * @param env Cloudflare Worker environment bindings
- * @returns GitHub user object or null if invalid
+ * @returns Authenticated identity or null if invalid
  */
 export async function validateGitHubToken(
 	token: string,
 	env: { TOKEN_CACHE: KVNamespace }
-): Promise<GitHubUser | null> {
+): Promise<AuthenticatedIdentity | null> {
 	// Create secure cache key by hashing the token
 	const cacheKey = await hashToken(token);
 
 	// Check KV cache
-	const cachedData = await env.TOKEN_CACHE.get(cacheKey, "json");
+	const cachedData = await env.TOKEN_CACHE.get(cacheKey);
 	if (cachedData) {
-		return cachedData as GitHubUser;
+		return JSON.parse(cachedData) as AuthenticatedIdentity;
 	}
 
-	// Fetch from GitHub API
+	// Try OAuth/PAT validation first (GET /user)
+	const userIdentity = await tryValidateAsUserToken(token);
+	if (userIdentity) {
+		await env.TOKEN_CACHE.put(cacheKey, JSON.stringify(userIdentity), {
+			expirationTtl: TOKEN_CACHE_TTL,
+		});
+		return userIdentity;
+	}
+
+	// Try GitHub App installation token validation
+	const installationIdentity = await tryValidateAsInstallationToken(token);
+	if (installationIdentity) {
+		await env.TOKEN_CACHE.put(cacheKey, JSON.stringify(installationIdentity), {
+			expirationTtl: TOKEN_CACHE_TTL,
+		});
+		return installationIdentity;
+	}
+
+	return null; // Invalid token
+}
+
+/**
+ * Try to validate token as an OAuth/PAT user token
+ * @param token GitHub token
+ * @returns Authenticated identity or null if not a valid user token
+ */
+async function tryValidateAsUserToken(token: string): Promise<AuthenticatedIdentity | null> {
 	try {
 		const response = await fetch(`${GITHUB_API_BASE}/user`, {
 			headers: {
@@ -52,22 +79,74 @@ export async function validateGitHubToken(
 			},
 		});
 
+		if (response.status === 401 || response.status === 403) {
+			return null; // Not a valid user token
+		}
+
 		if (!response.ok) {
-			// Clear cache on error
-			await env.TOKEN_CACHE.delete(cacheKey);
-			return null;
+			throw new Error(`GitHub API error: ${response.status}`);
 		}
 
 		const user = (await response.json()) as GitHubUser;
 
-		// Store in KV cache with TTL
-		await env.TOKEN_CACHE.put(cacheKey, JSON.stringify(user), {
-			expirationTtl: TOKEN_CACHE_TTL,
+		return {
+			type: 'user',
+			scope: user.login.toLowerCase(),
+			userId: user.id,
+			displayName: user.name || user.login
+		};
+	} catch (error) {
+		console.error('User token validation failed:', error);
+		return null;
+	}
+}
+
+/**
+ * Try to validate token as a GitHub App installation token
+ * @param token GitHub token
+ * @returns Authenticated identity or null if not a valid installation token
+ */
+async function tryValidateAsInstallationToken(token: string): Promise<AuthenticatedIdentity | null> {
+	try {
+		// Get repositories accessible by this installation token
+		const response = await fetch(`${GITHUB_API_BASE}/installation/repositories`, {
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"User-Agent": "qpm-registry/1.0.0",
+				Accept: "application/vnd.github.v3+json",
+			},
 		});
 
-		return user;
+		if (response.status === 401 || response.status === 403) {
+			return null; // Not a valid installation token
+		}
+
+		if (!response.ok) {
+			throw new Error(`GitHub API error: ${response.status}`);
+		}
+
+		const data = await response.json();
+
+		if (!data.repositories || data.repositories.length === 0) {
+			return null; // No repositories accessible
+		}
+
+		// Extract owner from repositories (all should have same owner)
+		const owners = new Set(data.repositories.map((repo: any) => repo.owner.login.toLowerCase()));
+
+		if (owners.size > 1) {
+			console.warn('Installation token has access to multiple owners:', Array.from(owners));
+		}
+
+		const ownerLogin = Array.from(owners)[0];
+
+		return {
+			type: 'installation',
+			scope: ownerLogin,
+			repositories: data.repositories.map((repo: any) => repo.full_name)
+		};
 	} catch (error) {
-		console.error("GitHub API error:", error);
+		console.error('Installation token validation failed:', error);
 		return null;
 	}
 }

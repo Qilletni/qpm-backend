@@ -132,8 +132,8 @@ export class PackageUpload extends OpenAPIRoute {
 		}
 
 		// Step 2: Validate token with GitHub API
-		const user = await validateGitHubToken(token, c.env);
-		if (!user) {
+		const identity = await validateGitHubToken(token, c.env);
+		if (!identity) {
 			return Response.json(
 				{
 					success: false,
@@ -158,9 +158,9 @@ export class PackageUpload extends OpenAPIRoute {
 			);
 		}
 
-		// Step 4: Validate scope matches authenticated user or org membership
-		// Check in order: global admin → user scope → org admin
-		const permissionResult = await checkPermissions(c, user, scope, token);
+		// Step 4: Validate scope matches authenticated identity or org membership
+		// Check in order: global admin → identity scope → org admin
+		const permissionResult = await checkPermissions(c, identity, scope, token);
         if (permissionResult) {
             return permissionResult;
         }
@@ -178,23 +178,26 @@ export class PackageUpload extends OpenAPIRoute {
 			);
 		}
 
-		// Step 6: Check if version already exists
-		const exists = await packageVersionExists(
-			c.env.PACKAGES,
-			scope,
-			packageName,
-			version
-		);
-		if (exists) {
-			return Response.json(
-				{
-					success: false,
-					error: "version_exists",
-					message: `Version ${version} of ${fullPackageName} already exists (versions are immutable)`,
-				},
-				{ status: 409 }
-			);
-		}
+        // Snapshot versions can overwrite each other
+        if (!version.endsWith('-SNAPSHOT')) {
+            // Step 6: Check if version already exists
+            const exists = await packageVersionExists(
+                c.env.PACKAGES,
+                scope,
+                packageName,
+                version
+            );
+            if (exists) {
+                return Response.json(
+                    {
+                        success: false,
+                        error: "version_exists",
+                        message: `Version ${version} of ${fullPackageName} already exists (versions are immutable)`,
+                    },
+                    {status: 409}
+                );
+            }
+        }
 
 		// Step 7: Check rate limits
 		const rateLimit = await checkUploadRateLimit(c.env, ip);
@@ -314,7 +317,7 @@ export class PackageUpload extends OpenAPIRoute {
 			integrity,
 			size: packageData.byteLength,
 			uploadedAt: new Date().toISOString(),
-			uploadedBy: user.login,
+			uploadedBy: identity.scope,
 			dependencies: dependencies,
 		};
 

@@ -93,8 +93,8 @@ export class PackageVersionDelete extends OpenAPIRoute {
 		}
 
 		// Step 2: Validate token with GitHub
-		const user = await validateGitHubToken(token, c.env);
-		if (!user) {
+		const identity = await validateGitHubToken(token, c.env);
+		if (!identity) {
 			return Response.json(
 				{
 					success: false,
@@ -132,9 +132,9 @@ export class PackageVersionDelete extends OpenAPIRoute {
 			);
 		}
 
-		// Step 5: Verify scope matches authenticated user or org membership
-		// Check in order: global admin → user scope → org admin
-        const permissionResult = await checkPermissions(c, user, scope, token);
+		// Step 5: Verify scope matches authenticated identity or org membership
+		// Check in order: global admin → identity scope → org admin
+        const permissionResult = await checkPermissions(c, identity, scope, token);
         if (permissionResult) {
             return permissionResult;
         }
