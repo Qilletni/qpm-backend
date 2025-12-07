@@ -8,7 +8,7 @@ import { OpenAPIRoute, contentJson, Str } from "chanfana";
 import { z } from "zod";
 import type { AppContext } from "../types";
 import { ErrorResponse } from "../types";
-import { getPackage, getMetadata } from "../utils/storage";
+import {getPackage, getMetadata, getVersionList} from "../utils/storage";
 import { normalizeScope } from "../utils/validation";
 
 export class PackageDownload extends OpenAPIRoute {
@@ -55,10 +55,32 @@ export class PackageDownload extends OpenAPIRoute {
 
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
-		const { scope: rawScope, package: packageName, version } = data.params;
+		const { scope: rawScope, package: packageName, version: rawVersion } = data.params;
 
 		// Normalize scope to lowercase for case-insensitive lookup
 		const scope = normalizeScope(rawScope);
+
+        let version = rawVersion;
+        if (version === "latest") {
+            const versionList = await getVersionList(
+                c.env.PACKAGES,
+                scope,
+                packageName
+            );
+
+            if (!versionList) {
+                return Response.json(
+                    {
+                        success: false,
+                        error: "not_found",
+                        message: `Package @${scope}/${packageName} not found`,
+                    },
+                    {status: 404}
+                );
+            }
+
+            version = versionList.latest.version;
+        }
 
 		// Step 1: Get package from R2
 		const packageObject = await getPackage(

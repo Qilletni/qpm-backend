@@ -6,7 +6,7 @@
 
 import { contentJson, OpenAPIRoute, Str } from "chanfana";
 import { z } from "zod";
-import type { AppContext } from "../types";
+import type {AppContext, PackageMetadataType} from "../types";
 import { UploadSuccessResponse, ErrorResponse } from "../types";
 import { validateGitHubToken, validateOrgMembership } from "../utils/github";
 import {
@@ -319,7 +319,7 @@ export class PackageUpload extends OpenAPIRoute {
 			uploadedAt: new Date().toISOString(),
 			uploadedBy: identity.scope,
 			dependencies: dependencies,
-		};
+		} as PackageMetadataType;
 
 		try {
 			await storeMetadata(

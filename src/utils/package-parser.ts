@@ -6,7 +6,7 @@ import { unzipSync } from "fflate";
  * - String: "version:@scope/package" or "^version:@scope/package"
  * - Object: { name: "@scope/package", version: "^1.0.0" }
  */
-type DependencyEntry = string | { name: string; version: string };
+type DependencyEntry = { scope: string, name: string; version: string };
 
 /**
  * Structure of qll.info JSON file inside .qll packages
@@ -72,21 +72,12 @@ export async function extractDependencies(
 
 		if (qllInfo.dependencies && Array.isArray(qllInfo.dependencies)) {
 			for (const dep of qllInfo.dependencies) {
-				if (typeof dep === "string") {
-					// Format: "version:@scope/package" or "^1.0.0:@scope/package"
-					const colonIndex = dep.indexOf(":");
-					if (colonIndex === -1) {
-						console.warn(`Invalid dependency format: ${dep}`);
-						continue;
-					}
+				if (typeof dep === "object" && dep.name && dep.version) {
+                    if (!dep.scope) {
+                        dep.scope = "UNKNOWN" // TODO: Remove this, for testing only
+                    }
 
-					const version = dep.substring(0, colonIndex);
-					const packageName = dep.substring(colonIndex + 1);
-
-					dependencies[packageName] = version;
-				} else if (typeof dep === "object" && dep.name && dep.version) {
-					// Format: { name: "@scope/package", version: "^1.0.0" }
-					dependencies[dep.name] = dep.version;
+					dependencies[`${dep.scope}/${dep.name}`] = dep.version;
 				} else {
 					console.warn(`Unknown dependency format:`, dep);
 				}
