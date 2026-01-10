@@ -168,12 +168,23 @@ export async function updateIndex(
 		};
 	}
 
-	// Check if version already exists (shouldn't happen due to earlier check)
-	const versionExists = index.versions.some(
+	// Check if version already exists
+	const existingVersionIndex = index.versions.findIndex(
 		(v) => v.version === metadata.version
 	);
 
-	if (!versionExists) {
+	if (existingVersionIndex !== -1) {
+		// If version exists and is a SNAPSHOT, allow overwrite
+		if (metadata.version.endsWith("-SNAPSHOT")) {
+			index.versions[existingVersionIndex] = {
+				version: metadata.version,
+				integrity: metadata.integrity,
+				size: metadata.size,
+				uploadedAt: metadata.uploadedAt,
+				dependencies: metadata.dependencies,
+			};
+		}
+	} else {
 		// Add new version
 		index.versions.push({
 			version: metadata.version,
@@ -303,26 +314,12 @@ export async function listAllPackages(bucket: R2Bucket): Promise<string[]> {
 		}
 
 		hasMore = listed.truncated;
-		cursor = listed.cursor;
+		if (listed.truncated) {
+			cursor = listed.cursor;
+		}
 	}
 
 	return Array.from(packages).sort();
-}
-
-/**
- * Get the latest version for a package from its index
- * @param bucket R2 bucket
- * @param scope Package scope (without @)
- * @param packageName Package name
- * @returns Latest version string or null if not found
- */
-export async function getPackageLatestVersion(
-	bucket: R2Bucket,
-	scope: string,
-	packageName: string
-): Promise<string | null> {
-	const versionList = await getVersionList(bucket, scope, packageName);
-	return versionList?.latest || null;
 }
 
 /**
