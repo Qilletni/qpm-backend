@@ -6,9 +6,11 @@ on:
       - 'v*.*.*'
 
 jobs:
-  publish-snapshot:
+  publish-release:
     runs-on: ubuntu-latest
     if: github.repository == 'Qilletni/qpm-backend'
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
 
